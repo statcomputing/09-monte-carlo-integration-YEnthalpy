@@ -84,7 +84,9 @@ do1rep <- function(n, k, sigma, t.end) {
   p.a <- exp(-0.05 * t.end) * ifelse(s.a - k > 0, s.a - k, 0)
   p.e <- exp(-0.05 * t.end) * ifelse(s.t - k > 0, s.t - k, 0)
   p.g <- exp(-0.05 * t.end) * ifelse(s.g - k > 0, s.g - k > 0, 0)
-  return(c(p.a, p.e, p.g, s.t))
+  out <- c(p.a, p.e, p.g, s.t)
+  names(out) <- c("PA", "PE", "PG", "ST")
+  return(out)
 }
 mySummary <- function(n, k, sigma, t.end) {
   sim <- replicate(5000, do1rep(n, k, sigma, t.end))
@@ -100,7 +102,7 @@ cor.k <- t(sapply(k, function(k) {
 }))
 data.temp <- as.data.frame(cor.k)
 colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
-data1 <- gather(data.temp)
+data1 <- tidyr::gather(data.temp)
 data1[, 3] <- rep(k, 3)
 colnames(data1) <- c("Correlation", "Coefficient", "K")
 p <- ggplot(data1, aes(x = K, y = Coefficient, colour = Correlation, 
@@ -149,8 +151,36 @@ p +
     geom_point(size = 3) +
     theme(legend.position = c(0.8, 0.2))
 ```
-```
 
+\subsection{Problem 5}
+```{r}
+k <- 1.5; sigma <- 0.4; t.end <- 1
+do1rep.mc <- function(n.path, n.sample, k, sigma, t.end) {
+  # get n.path results for pa, pg, pe and st.
+  sim <- replicate(n.path, do1rep(n.sample, k, sigma, t.end)) 
+  # calculate MC estimates
+  return(rowMeans(sim))
+}
+# estimate true E(pg) as mean of 5000 MC result
+pg.t <- do1rep.mc(5000, 100, k, sigma, t.end)["PG"]
+do1rep.vc <- function(n.path, n.sample, k, sigma, t.end, con.t) {
+  # get 100 MC results to calculate the cov and var
+  sim.1 <- replicate(100, do1rep.mc(n.path, n.sample, k, sigma, t.end))
+  b <- cov(sim.1["PA", ], sim.1["PG", ]) / var(sim.1["PG", ])
+  # use the mean of MC as the estimated MC
+  mc.est <- rowMeans(sim.1)
+  pa.vc <- mc.est["PA"] - b * (mc.est["PG"] - pg.t)
+  return(pa.vc)
+}
+# get 100 result of MC.vc for pa
+sim.vc <- replicate(100, do1rep.vc(100, 10, k, sigma, t.end))
+sd.vc <- sqrt(var(sim.vc))
+# get 100 result of MC for pa
+sim.mc <- replicate(100, do1rep.mc(100, 10, k, sigma, t.end))["PA"]
+sd.mc <- sqrt(var(sim.mc))
+cat("The SD for standard MC is: ", sd.mc, ".\n",
+    "The SD for MC having CV is: ", sd,vc, ".\n", rep(""))
+```
 
 
 
