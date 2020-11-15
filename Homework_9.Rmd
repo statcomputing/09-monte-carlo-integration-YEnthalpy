@@ -2,51 +2,79 @@
 title: "Homework 9"
 author: "Zehan Yang"
 date: "11/10/2020"
-header-includes:
-- \usepackage{configuration}
 output: 
   pdf_document:
     latex_engine: pdflatex
 ---
 \section{Exercise 7.5.1}
 \subsection{Problem 1}
+The code for implementing important sampling method is shown below.
 ```{r}
+# function for getting result from 1 sample
 do1rep <- function(n, h, df, dg, rg, ...) {
   x <- rg(n, ...)
   mean( h(x) * df(x) / dg(x, ...) )
 }
-
+# define h(x), f(x), g(x)
 h <- function(x) x ^ 2
 df <- function(x) {
   x ^ 2 * exp(- (x - 2) ^ 2 / 2) / 5 / sqrt(2 * pi)
 }
 dg <- function(x) dnorm(x)
+# define rg(x), the random number generating function from g(x)
 rg <- function(n) rnorm(n)
-
+# summary function for getting mean and varince
 mySummary <- function(nrep, n, h, df, dg, rg) {
   sim <- replicate(nrep, do1rep(n, h, df, dg, rg))
-  c(mean = mean(sim), sd = sd(sim))
+  c(Mean = mean(sim), Variance = var(sim))
 }
-
-sapply(c(1000, 10000, 50000), 
-       function(n) {
-         mySummary(100, n, h, df, dg, rg)
-       })
 ```
+The result for different sample size is shown below.
+```{r}
+out <- sapply(c(1000, 10000, 50000), 
+       function(n) {
+         out1 <- mySummary(100, n, h, df, dg, rg)
+         out2 <- do1rep(n, h, df, dg, rg)
+         return(c(Estimation = out2, out1))
+       })
+colnames(out) <- c("n=1000", "n=10000", "n=50000")
+out
+```
+
 \subsection{Problem 2}
+Since we have
+\begin{equation}
+x ^ 2 \cdot f(x) = \frac{1}{5\sqrt{2\pi}} x ^ 2
+\exp\left( -\frac{(x - 2) ^ 2}{2} \right),
+\end{equation}
+which is similar to the probability density function of Gamma distribution with
+shape parameter equals to 5 and scale parameter equals to 2. Although the 
+support for Gamma distribution is $(0, \infty)$ which is different from $f(x)$,
+we can still use this Gamma distribution in computation since $f(x)$ is very
+close to 0 when $x<0$.
+
+In summary, I will choose $g(x)$ as the PDF for $\text{Gamma}(2, 5)$.
 
 \subsection{Problem 3}
+The result table is shown below.
 ```{r}
 dg <- function(x) dgamma(x, shape = 5, scale = 2)
 rg <- function(n) rgamma(n, shape = 5, scale = 2)
-
-sapply(c(1000, 10000, 50000), 
+out <- sapply(c(1000, 10000, 50000), 
        function(n) {
-         mySummary(100, n, h, df, dg, rg)
+         out1 <- mySummary(100, n, h, df, dg, rg)
+         out2 <- do1rep(n, h, df, dg, rg)
+         return(c(Estimation = out2, out1))
        })
+colnames(out) <- c("n=1000", "n=10000", "n=50000")
+out
 ```
 
 \subsection{Problem 4}
+The results from my result are much stable when choosing different sample sizes. 
+Also, the variances for my results when choosing different sample sizes are much 
+smaller than the first method.
+
 \section{Exercise 7.5.2}
 \subsection{Problem 1}
 Since $\forall t$,
@@ -76,6 +104,7 @@ gen.gbm <- function(t.end, delta, sigma) {
 \subsection{Problem 2}
 From the assumption, we can get that $\Delta = \frac{1}{n}$.
 ```{r}
+library(ggplot2)
 do1rep <- function(n, k, sigma, t.end) {
   one.sam <- gen.gbm(t.end, (1 / n), sigma)
   s.a <- mean(one.sam)
@@ -101,7 +130,7 @@ cor.k <- t(sapply(k, function(k) {
   mySummary(n, k, sigma, t.end)
 }))
 data.temp <- as.data.frame(cor.k)
-colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
+colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PA v.s. ST")
 data1 <- tidyr::gather(data.temp)
 data1[, 3] <- rep(k, 3)
 colnames(data1) <- c("Correlation", "Coefficient", "K")
@@ -112,6 +141,11 @@ p +
     geom_point(size = 3) +
     theme(legend.position = c(0.2, 0.2))
 ```
+
+The plot shows that as $K$ increasing, the correlation coefficients for 
+$PA$ v.s. $PE$ and $PA$ v.s. $S(T)$ is decreasing but for $PA$ v.s. $PG$ is
+increasing.
+
 \subsection{Problem 3}
 ```{r}
 k <- 1.5; t.end <- 1; n <- 100
@@ -120,8 +154,8 @@ cor.sig <- t(sapply(sigma, function(sigma) {
   mySummary(n, k, sigma, t.end)
 }))
 data.temp <- as.data.frame(cor.sig)
-colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
-data1 <- gather(data.temp)
+colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PA v.s. ST")
+data1 <- tidyr::gather(data.temp)
 data1[, 3] <- rep(sigma, 3)
 colnames(data1) <- c("Correlation", "Coefficient", "Sigma")
 p <- ggplot(data1, aes(x = Sigma, y = Coefficient, colour = Correlation, 
@@ -132,6 +166,10 @@ p +
     theme(legend.position = c(0.8, 0.2))
 ```
 
+The plot shows that as $\sigma$ increasing, the correlation coefficients for 
+$PA$ v.s. $PE$ and $PA$ v.s. $S(T)$ is increasing but for $PA$ v.s. $PG$ is
+decreasing.
+
 \subsection{Problem 4}
 ```{r}
 k <- 1.5; sigma <- 0.4; n <- 100
@@ -140,8 +178,8 @@ cor.t <- t(sapply(t.end, function(t.end) {
   mySummary(n, k, sigma, t.end)
 }))
 data.temp <- as.data.frame(cor.t)
-colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
-data1 <- gather(data.temp)
+colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PA v.s. ST")
+data1 <- tidyr::gather(data.temp)
 data1[, 3] <- rep(t.end, 3)
 colnames(data1) <- c("Correlation", "Coefficient", "Time")
 p <- ggplot(data1, aes(x = Time, y = Coefficient, colour = Correlation, 
@@ -152,35 +190,44 @@ p +
     theme(legend.position = c(0.8, 0.2))
 ```
 
+The plot shows that as $T$ increasing, the correlation coefficients for 
+$PA$ v.s. $PE$ and $PA$ v.s. $S(T)$ are increasing but for $PA$ v.s. $PG$ is
+decreasing.
+
 \subsection{Problem 5}
 ```{r}
-k <- 1.5; sigma <- 0.4; t.end <- 1
+k <- 1.5; sigma <- 0.4; t.end <- 1; n.path <- 100; n.sample <- 10
 do1rep.mc <- function(n.path, n.sample, k, sigma, t.end) {
   # get n.path results for pa, pg, pe and st.
   sim <- replicate(n.path, do1rep(n.sample, k, sigma, t.end)) 
   # calculate MC estimates
   return(rowMeans(sim))
 }
-# estimate true E(pg) as mean of 5000 MC result
-pg.t <- do1rep.mc(5000, 100, k, sigma, t.end)["PG"]
+# estimate true E(pg) as mean of 1000 MC result
+pg.t <- mean(replicate(1000, do1rep.mc(n.path, n.sample, k, sigma, t.end)["PG"]))
+# function for calculating MC.vc
 do1rep.vc <- function(n.path, n.sample, k, sigma, t.end, con.t) {
-  # get 100 MC results to calculate the cov and var
-  sim.1 <- replicate(100, do1rep.mc(n.path, n.sample, k, sigma, t.end))
+  # get 50 MC results to calculate the cov and var
+  sim.1 <- replicate(50, do1rep.mc(n.path, n.sample, k, sigma, t.end))
   b <- cov(sim.1["PA", ], sim.1["PG", ]) / var(sim.1["PG", ])
   # use the mean of MC as the estimated MC
   mc.est <- rowMeans(sim.1)
-  pa.vc <- mc.est["PA"] - b * (mc.est["PG"] - pg.t)
+  pa.vc <- mc.est["PA"] - b * (mc.est["PG"] - con.t)
   return(pa.vc)
 }
-# get 100 result of MC.vc for pa
-sim.vc <- replicate(100, do1rep.vc(100, 10, k, sigma, t.end))
+# get 50 result of MC.vc for pa
+sim.vc <- replicate(50, do1rep.vc(n.path, n.sample, k, sigma, t.end, mean(pg.t)))
+pa.vc <- mean(sim.vc)
 sd.vc <- sqrt(var(sim.vc))
-# get 100 result of MC for pa
-sim.mc <- replicate(100, do1rep.mc(100, 10, k, sigma, t.end))["PA"]
+# get 50 result of MC for pa
+sim.mc <- replicate(50, do1rep.mc(n.path, n.sample, k, sigma, t.end)["PA"])
 sd.mc <- sqrt(var(sim.mc))
-cat("The SD for standard MC is: ", sd.mc, ".\n",
-    "The SD for MC having CV is: ", sd,vc, ".\n", rep(""))
+cat("A control variate MC for E(PA) is: ", pa.vc, ".\n",
+    "The SD for standard MC is: ", sd.mc, ".\n",
+    "The SD for MC having CV is: ", sd.vc, ".\n", sep = "")
 ```
+The result shows that the SD for MC with control variate is much smaller than MC without control variate.
+
 
 
 
