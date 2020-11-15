@@ -1,0 +1,159 @@
+---
+title: "Homework 9"
+author: "Zehan Yang"
+date: "11/10/2020"
+header-includes:
+- \usepackage{configuration}
+output: 
+  pdf_document:
+    latex_engine: pdflatex
+---
+\section{Exercise 7.5.1}
+\subsection{Problem 1}
+```{r}
+do1rep <- function(n, h, df, dg, rg, ...) {
+  x <- rg(n, ...)
+  mean( h(x) * df(x) / dg(x, ...) )
+}
+
+h <- function(x) x ^ 2
+df <- function(x) {
+  x ^ 2 * exp(- (x - 2) ^ 2 / 2) / 5 / sqrt(2 * pi)
+}
+dg <- function(x) dnorm(x)
+rg <- function(n) rnorm(n)
+
+mySummary <- function(nrep, n, h, df, dg, rg) {
+  sim <- replicate(nrep, do1rep(n, h, df, dg, rg))
+  c(mean = mean(sim), sd = sd(sim))
+}
+
+sapply(c(1000, 10000, 50000), 
+       function(n) {
+         mySummary(100, n, h, df, dg, rg)
+       })
+```
+\subsection{Problem 2}
+
+\subsection{Problem 3}
+```{r}
+dg <- function(x) dgamma(x, shape = 5, scale = 2)
+rg <- function(n) rgamma(n, shape = 5, scale = 2)
+
+sapply(c(1000, 10000, 50000), 
+       function(n) {
+         mySummary(100, n, h, df, dg, rg)
+       })
+```
+
+\subsection{Problem 4}
+\section{Exercise 7.5.2}
+\subsection{Problem 1}
+Since $\forall t$,
+\begin{equation*}
+\frac{\text{d}S(t)}{S(t)} = r\text{d}t + \sigma \text{d}W(t),
+\end{equation*}
+we can conclude that
+\begin{equation*}
+S(t_i + \Delta) = S(t_i)\exp\left\lbrace (r - \frac{\sigma^2}{2})\Delta +
+\sigma\sqrt{\Delta}Z\right\rbrace,
+\end{equation*}
+where $Z \sim \text{N}(0,1)$.
+The code for generating this geometric Brownian motion should be.
+```{r}
+gen.gbm <- function(t.end, delta, sigma) {
+  out <- rep(NA, t.end / delta)
+  s <- 1
+  for (i in 1:(t.end / delta)) {
+    s <- s * exp((0.05 - sigma ^ 2 / 2) * delta + 
+      sigma * sqrt(delta) * rnorm(1))
+    out[i] <- s
+  }
+  return(out)
+}
+```
+
+\subsection{Problem 2}
+From the assumption, we can get that $\Delta = \frac{1}{n}$.
+```{r}
+do1rep <- function(n, k, sigma, t.end) {
+  one.sam <- gen.gbm(t.end, (1 / n), sigma)
+  s.a <- mean(one.sam)
+  s.g <- EnvStats::geoMean(one.sam)
+  s.t <- one.sam[n * t.end]
+  p.a <- exp(-0.05 * t.end) * ifelse(s.a - k > 0, s.a - k, 0)
+  p.e <- exp(-0.05 * t.end) * ifelse(s.t - k > 0, s.t - k, 0)
+  p.g <- exp(-0.05 * t.end) * ifelse(s.g - k > 0, s.g - k > 0, 0)
+  return(c(p.a, p.e, p.g, s.t))
+}
+mySummary <- function(n, k, sigma, t.end) {
+  sim <- replicate(5000, do1rep(n, k, sigma, t.end))
+  cor.a.e <- cor(sim[1, ], sim[2, ])
+  cor.a.g <- cor(sim[1, ], sim[3, ])
+  cor.a.t <- cor(sim[1, ], sim[4, ])
+  return(c(cor.a.e, cor.a.g, cor.a.t))
+}
+sigma <- 0.5; t.end <- 1; n <- 100
+k <- seq(1.1, 1.5, 0.1)
+cor.k <- t(sapply(k, function(k) {
+  mySummary(n, k, sigma, t.end)
+}))
+data.temp <- as.data.frame(cor.k)
+colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
+data1 <- gather(data.temp)
+data1[, 3] <- rep(k, 3)
+colnames(data1) <- c("Correlation", "Coefficient", "K")
+p <- ggplot(data1, aes(x = K, y = Coefficient, colour = Correlation, 
+                       shape = Correlation))
+p + 
+    geom_line() +
+    geom_point(size = 3) +
+    theme(legend.position = c(0.2, 0.2))
+```
+\subsection{Problem 3}
+```{r}
+k <- 1.5; t.end <- 1; n <- 100
+sigma <- seq(0.2, 0.5, 0.1)
+cor.sig <- t(sapply(sigma, function(sigma) {
+  mySummary(n, k, sigma, t.end)
+}))
+data.temp <- as.data.frame(cor.sig)
+colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
+data1 <- gather(data.temp)
+data1[, 3] <- rep(sigma, 3)
+colnames(data1) <- c("Correlation", "Coefficient", "Sigma")
+p <- ggplot(data1, aes(x = Sigma, y = Coefficient, colour = Correlation, 
+                       shape = Correlation))
+p + 
+    geom_line() +
+    geom_point(size = 3) +
+    theme(legend.position = c(0.8, 0.2))
+```
+
+\subsection{Problem 4}
+```{r}
+k <- 1.5; sigma <- 0.4; n <- 100
+t.end <- seq(0.4, 1.6, 0.3)
+cor.t <- t(sapply(t.end, function(t.end) {
+  mySummary(n, k, sigma, t.end)
+}))
+data.temp <- as.data.frame(cor.t)
+colnames(data.temp) <- c("PA v.s. PE", "PA v.s. PG", "PS v.s. ST")
+data1 <- gather(data.temp)
+data1[, 3] <- rep(t.end, 3)
+colnames(data1) <- c("Correlation", "Coefficient", "Time")
+p <- ggplot(data1, aes(x = Time, y = Coefficient, colour = Correlation, 
+                       shape = Correlation))
+p + 
+    geom_line() +
+    geom_point(size = 3) +
+    theme(legend.position = c(0.8, 0.2))
+```
+```
+
+
+
+
+
+
+
